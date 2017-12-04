@@ -1,0 +1,7 @@
+{
+  "ip": "https://www.example.com",
+  "port": "8443",
+  "public": "cert.pem",
+  "private": "key.pem",
+  "token": "123456789:ABCDEFGHIJKLMNOPQRS_UV_XYZ_EXAMPLE-0"
+}
