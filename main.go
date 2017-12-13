@@ -53,7 +53,7 @@ func main() {
 
 	updates := bot.ListenForWebhook("/" + bot.Token)
 
-	go http.ListenAndServeTLS("0.0.0.0:"+conexamplefig.Port, config.Public,
+	go http.ListenAndServeTLS("0.0.0.0:"+config.Port, config.Public,
 		config.Private, nil)
 
 	for update := range updates {
