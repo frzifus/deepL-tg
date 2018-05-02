@@ -1,4 +1,4 @@
-package deepL
+package DeepL
 
 import (
 	"bytes"
@@ -27,7 +27,8 @@ type params struct {
 	Priority int `json:"priority"`
 }
 
-type deepL struct {
+// DeepL -
+type DeepL struct {
 	Jsonrpc string `json:"jsonrpc"`
 	Method  string `json:"method"`
 	ID      int    `json:"id"`
@@ -43,7 +44,8 @@ type Beams struct {
 	TotalLogProb          float64 `json:"totalLogProb"`
 }
 
-type deepLResponse struct {
+// DeepLResponse -
+type DeepLResponse struct {
 	ID      int    `json:"id"`
 	Jsonrpc string `json:"jsonrpc"`
 	Result  struct {
@@ -60,21 +62,13 @@ type deepLResponse struct {
 	} `json:"result"`
 }
 
-type dconfig struct {
-	Path    string
-	IP      string `json:"ip"`
-	Port    string `json:"port"`
-	Public  string `json:"public"`
-	Private string `json:"private"`
-	Token   string `json:"token"`
-}
-
 // BeamsRes -
 type BeamsRes []Beams
 
 func (b BeamsRes) Len() int {
 	return len(b)
 }
+
 func (b BeamsRes) Swap(i, j int) {
 	b[i], b[j] = b[j], b[i]
 }
@@ -83,25 +77,9 @@ func (b BeamsRes) Less(i, j int) bool {
 	return b[i].Score < b[j].Score
 }
 
-// LoadConfig -
-func LoadConfig(path string) (*dconfig, error) {
-	d := &dconfig{}
-	raw, err := ioutil.ReadFile(path + "./bot.json")
-	if err != nil {
-		return d, err
-	}
-	err = json.Unmarshal(raw, &d)
-	if err != nil {
-		return d, err
-	}
-	d.Public = path + "./" + d.Public
-	d.Private = path + "./" + d.Private
-	return d, nil
-}
-
 // NewDeepL -
-func NewDeepL() *deepL {
-	return &deepL{
+func NewDeepL() *DeepL {
+	return &DeepL{
 		Jsonrpc: "2.0",
 		Method:  "LMT_handle_jobs",
 		ID:      1,
@@ -116,15 +94,18 @@ func NewDeepL() *deepL {
 	}
 }
 
-func (d *deepL) SupportedLang() []string {
+// SupportedLang returns a string array with all supported languages.
+func (d *DeepL) SupportedLang() []string {
 	return []string{"EN", "DE"}
 }
 
-func (d *deepL) SetTargetLang(lang string) {
+// SetTargetLang - Sets target language by country abbreviation.
+func (d *DeepL) SetTargetLang(lang string) {
 	d.params.lang.TargetLang = lang
 }
 
-func (d *deepL) AddJob(rawSentence string) {
+// AddJob - creates a job to be done using a record.
+func (d *DeepL) AddJob(rawSentence string) {
 	j := Job{
 		Kind:          "default",
 		RawEnSentence: rawSentence,
@@ -132,12 +113,14 @@ func (d *deepL) AddJob(rawSentence string) {
 	d.params.Jobs = append(d.params.Jobs, j)
 }
 
-func (d *deepL) ResetJobs() {
+// ResetJobs - resets the job queue.
+func (d *DeepL) ResetJobs() {
 	d.params.Jobs = d.params.Jobs[:0]
 }
 
-// TODO: add timeout
-func (d *deepL) Request() (*deepLResponse, error) {
+// Request - Send the request and wait for a result.
+func (d *DeepL) Request() (*DeepLResponse, error) {
+	// TODO: add timeout
 	url := "https://deepl.com/jsonrpc"
 	jsonStr, err := json.Marshal(d)
 	if err != nil {
@@ -161,21 +144,25 @@ func (d *deepL) Request() (*deepLResponse, error) {
 	if resp.StatusCode != 200 {
 		return nil, errors.New(resp.Status)
 	}
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 
 	return decodeResponse(string(body))
 }
 
-func decodeResponse(responseJSON string) (*deepLResponse, error) {
-	res := &deepLResponse{}
+func decodeResponse(responseJSON string) (*DeepLResponse, error) {
+	res := &DeepLResponse{}
 	return res, json.Unmarshal([]byte(responseJSON), res)
 }
 
-func (d *deepLResponse) sortByScore() {
+func (d *DeepLResponse) sortByScore() {
 	sort.Sort(BeamsRes(d.Result.Translations[0].Beams))
 }
 
-func (d *deepLResponse) Translation() string {
+// Translation - Returns the best translation result.
+func (d *DeepLResponse) Translation() string {
 	d.sortByScore()
 	return d.Result.Translations[0].Beams[0].PostprocessedSentence
 }

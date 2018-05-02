@@ -2,66 +2,68 @@ package main
 
 import (
 	"flag"
-	dl "github.com/frzifus/deepL-tg/deepl"
-	"gopkg.in/telegram-bot-api.v4"
 	"log"
 	"net/http"
 	"os"
+
+	dl "github.com/frzifus/deepL-tg/deepl"
+	"gopkg.in/telegram-bot-api.v4"
 )
 
-func main() {
-	pathPtr := flag.String("path", "./data/", "path to config and cert")
+var (
+	cfg   *config
+	debug *bool
+)
+
+func init() {
+	cfgFile := flag.String("c", "config.json", "path to config file")
+	debug = flag.Bool("d", false, "set to get debug infos")
 	flag.Parse()
-	path := *pathPtr
-	e, err := os.OpenFile(path+"/e.log", os.O_RDWR|os.O_CREATE|os.O_APPEND,
-		0666)
-	if err != nil {
-		panic(err)
+	log.Printf("Load config from %s\n", *cfgFile)
+	var err error
+	if cfg, err = loadConfig(*cfgFile); err != nil {
+		log.Fatal(err)
+		os.Exit(1)
 	}
-	defer e.Close()
+}
 
-	log.SetOutput(e)
-	log.Printf("Path = %s\n", *pathPtr)
-	config, err := dl.LoadConfig(path)
+func main() {
+	log.Println("Create a new Telegram bot")
+	bot, err := tgbotapi.NewBotAPI(cfg.Token)
 	if err != nil {
-		panic(err)
+		log.Println("Couldn't create bot.")
+		os.Exit(1)
 	}
-	bot, err := tgbotapi.NewBotAPI(config.Token)
-	bot.Debug = false
+	bot.Debug = *debug
 
+	log.Println("Authorized on account", bot.Self.UserName)
+	w, err := bot.GetWebhookInfo()
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	log.Printf("Authorized on account %s", bot.Self.UserName)
-	w, _ := bot.GetWebhookInfo()
-	log.Printf("%s", w.URL)
-
-	log.Printf("Public path: %s", config.Public)
-	log.Printf("Private path: %s", config.Private)
+	log.Println("Webhook URL:", w.URL)
 
 	_, err = bot.SetWebhook(
-		tgbotapi.NewWebhookWithCert(config.IP+config.Port+"/"+bot.Token,
-			config.Public))
-
+		tgbotapi.NewWebhookWithCert(cfg.getWebHookURL(), cfg.Public))
 	if err != nil {
 		log.Fatal(err)
+		os.Exit(1)
 	}
 
 	d := dl.NewDeepL()
 	d.SetTargetLang("EN")
+	updates := bot.ListenForWebhook("/" + cfg.Token)
 
-	updates := bot.ListenForWebhook("/" + bot.Token)
-
-	go http.ListenAndServeTLS("0.0.0.0:"+config.Port, config.Public,
-		config.Private, nil)
+	go http.ListenAndServeTLS("0.0.0.0:"+cfg.Port, cfg.Public, cfg.Private, nil)
 
 	for update := range updates {
-
+		if update.Message.Text == "" {
+			continue
+		}
 		d.AddJob(update.Message.Text)
 		resp, err := d.Request()
 		if err != nil {
-			log.Println("fehler beim uebersetzen!")
+			log.Println("error in translation")
 			d.ResetJobs()
 			continue
 		}
