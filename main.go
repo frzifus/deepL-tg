@@ -67,8 +67,13 @@ func main() {
 			d.ResetJobs()
 			continue
 		}
-
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, resp.Translation())
+		t, err := resp.Translation()
+		if err != nil {
+			log.Println(err)
+			d.ResetJobs()
+			continue
+		}
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, t)
 		msg.ReplyToMessageID = update.Message.MessageID
 		_, err = bot.Send(msg)
 		if err != nil {

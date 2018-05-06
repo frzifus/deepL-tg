@@ -162,7 +162,10 @@ func (d *DeepLResponse) sortByScore() {
 }
 
 // Translation - Returns the best translation result.
-func (d *DeepLResponse) Translation() string {
+func (d *DeepLResponse) Translation() (string, error) {
+	if len(d.Result.Translations) == 0 {
+		return "", errors.New("translation failed")
+	}
 	d.sortByScore()
-	return d.Result.Translations[0].Beams[0].PostprocessedSentence
+	return d.Result.Translations[0].Beams[0].PostprocessedSentence, nil
 }
